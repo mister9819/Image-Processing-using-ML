@@ -126,7 +126,7 @@ def EncoderCNN(image_shape, encode_len):
 
 
 def DecoderCNN(image_shape, encode_len):
-    helper_shape = get_helper_shape(image_shape)
+    helper_shape = utils.get_helper_shape(image_shape)
     decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
     x = keras.layers.Dense(utils.number_of_pixels(helper_shape), activation="relu")(decoder_input)
     x = keras.layers.Reshape(helper_shape)(x)
