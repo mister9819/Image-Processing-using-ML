@@ -5,49 +5,42 @@ import custom_layers
 
 def encoder_choice(image_shape, encode_len, encoder_type, inp):
     e = None
+    layers = []
     if encoder_type == 'D':
-        e = EncoderDNN(image_shape, encode_len)
+        layers = otherLayers()
+        e = EncoderDNN(image_shape, encode_len, layers)
     elif encoder_type == 'C':
-        return EncoderCNN(image_shape, encode_len)
-    elif encoder_type == 'R':
-        e = EncoderRNN(image_shape, encode_len)
-    elif encoder_type == 'G':
-        e = EncoderGRU(image_shape, encode_len)
-    elif encoder_type == 'L':
-        e = EncoderLSTM(image_shape, encode_len)
-    elif encoder_type == 'BR':
-        e = EncoderBiRNN(image_shape, encode_len)
-    elif encoder_type == 'BG':
-        e = EncoderBiGRU(image_shape, encode_len)
-    elif encoder_type == 'BL':
-        e = EncoderBiLSTM(image_shape, encode_len)
+        layers = CNNLayers(image_shape, True)
+        e = EncoderCNN(image_shape, encode_len, layers)
+    elif encoder_type == 'R' or encoder_type == 'G' or encoder_type == 'L' or \
+            encoder_type == 'BR' or encoder_type == 'BG' or encoder_type == 'BL':
+        layers = otherLayers()
+        if len(layers) == 0:
+            print("Cannot have 0 layers")
+            exit()
+        e = EncoderSpecial(encoder_type, image_shape, encode_len, layers)
     else:
         if not(inp):
             print("Wrong choice for Encoder. \nC for CNN \nD for Dense "
                   "\nR for RNN \nG for GRU \nL for LSTM "
                   "\nBR for BiRNN \nG for BiGRU \nL for BiLSTM")
             exit()
-    return e
+    layers.reverse()
+    return e, layers
 
 
-def custom_decoder_choice(image_shape, encode_len, decoder_type, layers, inp):
+def decoder_choice(image_shape, encode_len, decoder_type, layers, inp):
     d = None
     if decoder_type == 'D':
         d = DecoderDNN(image_shape, encode_len, layers)
     elif decoder_type == 'C':
         return DecoderCNN(image_shape, encode_len, layers)
-    elif decoder_type == 'R':
-        d = DecoderRNN(image_shape, encode_len)
-    elif decoder_type == 'G':
-        d = DecoderGRU(image_shape, encode_len)
-    elif decoder_type == 'L':
-        d = DecoderLSTM(image_shape, encode_len)
-    elif decoder_type == 'BR':
-        d = DecoderBiRNN(image_shape, encode_len)
-    elif decoder_type == 'BG':
-        d = DecoderBiGRU(image_shape, encode_len)
-    elif decoder_type == 'BL':
-        d = DecoderBiLSTM(image_shape, encode_len)
+    elif decoder_type == 'R' or decoder_type == 'G' or decoder_type == 'L' or \
+            decoder_type == 'BR' or decoder_type == 'BG' or decoder_type == 'BL':
+        if len(layers) == 0:
+            print("Cannot have 0 layers")
+            exit()
+        d = DecoderSpecial(decoder_type, image_shape, encode_len, layers)
     else:
         if not (inp):
             print("Wrong choice for Decoder. \nC for CNN \nD for Dense "
@@ -63,20 +56,22 @@ def create_model(image_shape, encoder_type, decoder_type, encode_len, inp=False)
         encode_len = int(input("Enter length of encoded message: "))
         while True:
             encoder_type = input("Enter choice for autoencoder. \nC for CNN \nD for Dense "
-                                 "\nChoice: ")
+              "\nR for RNN \nG for GRU \nL for LSTM "
+              "\nBR for BiRNN \nBG for BiGRU \nBL for BiLSTM \n0 for exit \nChoice: ")
             if encoder_type == "0":
                 exit()
             encoder_type = encoder_type.upper()
+
             e, layers = encoder_choice(image_shape, encode_len, encoder_type, inp)
 
             decoder_type = encoder_type
-            d = custom_decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
+            d = decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
             if d != None:
                 break
     else:
         e, layers = encoder_choice(image_shape, encode_len, encoder_type, inp)
         print(layers)
-        d = custom_decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
+        d = decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
 
     # define input to the model:
     x = keras.Input(shape=image_shape)
@@ -91,15 +86,13 @@ def create_model(image_shape, encoder_type, decoder_type, encode_len, inp=False)
     return autoencoder
 
 
-def EncoderDNN(image_shape, encode_len):
-    layers = otherLayers()
+def EncoderDNN(image_shape, encode_len, layers):
     encoder_input = keras.Input(shape=image_shape, name="EncoderInput")
     x = keras.layers.Flatten()(encoder_input)
     for layer in layers:
         x = keras.layers.Dense(layer, activation="relu")(x)
     encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    layers.reverse()
-    return keras.Model(encoder_input, encoder_output, name='EncoderDNN'), layers
+    return keras.Model(encoder_input, encoder_output, name='EncoderDNN')
 
 
 def DecoderDNN(image_shape, encode_len, layers):
@@ -114,19 +107,14 @@ def DecoderDNN(image_shape, encode_len, layers):
     return keras.Model(decoder_input, decoder_output, name='DecoderDNN')
 
 
-def EncoderCNN(image_shape, encode_len):
-    # Build Model
-    layers = CNNLayers(image_shape, True)
-
-    # Create Model
+def EncoderCNN(image_shape, encode_len, layers):
     encoder_input = keras.Input(shape=image_shape, name="EncoderInput")
     x = custom_layers.CNNBlock(layers[0][0], True, layers[0][1])(encoder_input)
     for layer in layers[1:]:
         x = custom_layers.CNNBlock(layer[0], True, layer[1])(x)
     x = keras.layers.Flatten()(x)
     encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    layers.reverse()
-    return keras.Model(encoder_input, encoder_output, name='EncoderCNN'), layers
+    return keras.Model(encoder_input, encoder_output, name='EncoderCNN')
 
 
 def DecoderCNN(image_shape, encode_len, layers):
@@ -140,136 +128,50 @@ def DecoderCNN(image_shape, encode_len, layers):
     return keras.Model(decoder_input, decoder_output, name='DecoderCNN')
 
 
-def EncoderRNN(image_shape, encode_len):
+def EncoderSpecial(type, image_shape, encode_len, layers):
     encoder_input = keras.Input(shape=(None, image_shape[0]), name="EncoderInput")
-    x = keras.layers.SimpleRNN(128, return_sequences=True, activation="relu")(encoder_input)
-    x = keras.layers.SimpleRNN(64, activation="relu")(x)
+    if len(layers) == 1:
+        x = specialLayer(type, layers[0], False)(encoder_input)
+    else:
+        x = specialLayer(type, layers[0], True)(encoder_input)
+        for layer in layers[1:-1]:
+            x = specialLayer(type, layer, True)(x)
+        x = specialLayer(type, layers[-1], False)(x)
     encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    return keras.Model(encoder_input, encoder_output, name='EncoderRNN')
+    return keras.Model(encoder_input, encoder_output, name='Encoder' + type)
 
 
-def DecoderRNN(image_shape, encode_len):
+def DecoderSpecial(type, image_shape, encode_len, layers):
     decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
     x = keras.layers.Reshape((encode_len, 1))(decoder_input)
-    x = keras.layers.SimpleRNN(64, return_sequences=True, activation="relu")(x)
-    x = keras.layers.SimpleRNN(128, activation="relu")(x)
-    x = keras.layers.Dense(utils.number_of_pixels(image_shape), activation="relu", name="EncoderOutput")(x)
-    decoder_output = keras.layers.Reshape(image_shape)(x)
-    return keras.Model(decoder_input, decoder_output, name='DecoderRNN')
+    for layer in layers[:-1]:
+        x = specialLayer(type, layer, True)(x)
+    x = specialLayer(type, layers[-1], False)(x)
+    decoder_output = custom_layers.DecoderOutput(image_shape)(x)
+    return keras.Model(decoder_input, decoder_output, name='Decoder' + type)
 
 
-def EncoderGRU(image_shape, encode_len):
-    encoder_input = keras.Input(shape=(None, image_shape[0]), name="EncoderInput")
-    x = keras.layers.GRU(128, return_sequences=True, activation="relu")(encoder_input)
-    x = keras.layers.GRU(64, activation="relu")(x)
-    encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    return keras.Model(encoder_input, encoder_output, name='EncoderGRU')
-
-
-def DecoderGRU(image_shape, encode_len):
-    decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
-    x = keras.layers.Reshape((encode_len, 1))(decoder_input)
-    x = keras.layers.GRU(64, return_sequences=True, activation="relu")(x)
-    x = keras.layers.GRU(128, activation="relu")(x)
-    x = keras.layers.Dense(utils.number_of_pixels(image_shape), activation="relu", name="EncoderOutput")(x)
-    decoder_output = keras.layers.Reshape(image_shape)(x)
-    return keras.Model(decoder_input, decoder_output, name='DecoderGRU')
-
-
-def EncoderLSTM(image_shape, encode_len):
-    encoder_input = keras.Input(shape=(None, image_shape[0]), name="EncoderInput")
-    x = keras.layers.LSTM(128, return_sequences=True, activation="relu")(encoder_input)
-    x = keras.layers.LSTM(64, activation="relu")(x)
-    encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    return keras.Model(encoder_input, encoder_output, name='EncoderLSTM')
-
-
-def DecoderLSTM(image_shape, encode_len):
-    decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
-    x = keras.layers.Reshape((encode_len, 1))(decoder_input)
-    x = keras.layers.LSTM(64, return_sequences=True, activation="relu")(x)
-    x = keras.layers.LSTM(128, activation="relu")(x)
-    x = keras.layers.Dense(utils.number_of_pixels(image_shape), activation="relu", name="EncoderOutput")(x)
-    decoder_output = keras.layers.Reshape(image_shape)(x)
-    return keras.Model(decoder_input, decoder_output, name='DecoderLSTM')
-
-
-def EncoderBiRNN(image_shape, encode_len):
-    encoder_input = keras.Input(shape=(None, image_shape[0]), name="EncoderInput")
-    x = keras.layers.Bidirectional(
-        keras.layers.SimpleRNN(128, return_sequences=True, activation="relu")
-    )(encoder_input)
-    x = keras.layers.Bidirectional(
-        keras.layers.SimpleRNN(64, activation="relu")
-    )(x)
-    encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    return keras.Model(encoder_input, encoder_output, name='EncoderBiRNN')
-
-
-def DecoderBiRNN(image_shape, encode_len):
-    decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
-    x = keras.layers.Reshape((encode_len, 1))(decoder_input)
-    x = keras.layers.Bidirectional(
-        keras.layers.SimpleRNN(64, return_sequences=True, activation="relu")
-    )(x)
-    x = keras.layers.Bidirectional(
-        keras.layers.SimpleRNN(128, activation="relu")
-    )(x)
-    x = keras.layers.Dense(utils.number_of_pixels(image_shape), activation="relu", name="EncoderOutput")(x)
-    decoder_output = keras.layers.Reshape(image_shape)(x)
-    return keras.Model(decoder_input, decoder_output, name='DecoderBiRNN')
-
-
-def EncoderBiGRU(image_shape, encode_len):
-    encoder_input = keras.Input(shape=(None, image_shape[0]), name="EncoderInput")
-    x = keras.layers.Bidirectional(
-        keras.layers.GRU(128, return_sequences=True, activation="relu")
-    )(encoder_input)
-    x = keras.layers.Bidirectional(
-        keras.layers.GRU(64, activation="relu")
-    )(x)
-    encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    return keras.Model(encoder_input, encoder_output, name='EncoderBiGRU')
-
-
-def DecoderBiGRU(image_shape, encode_len):
-    decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
-    x = keras.layers.Reshape((encode_len, 1))(decoder_input)
-    x = keras.layers.Bidirectional(
-        keras.layers.GRU(64, return_sequences=True, activation="relu")
-    )(x)
-    x = keras.layers.Bidirectional(
-        keras.layers.GRU(128, activation="relu")
-    )(x)
-    x = keras.layers.Dense(utils.number_of_pixels(image_shape), activation="relu", name="EncoderOutput")(x)
-    decoder_output = keras.layers.Reshape(image_shape)(x)
-    return keras.Model(decoder_input, decoder_output, name='DecoderBiGRU')
-
-
-def EncoderBiLSTM(image_shape, encode_len):
-    encoder_input = keras.Input(shape=(None, image_shape[0]), name="EncoderInput")
-    x = keras.layers.Bidirectional(
-        keras.layers.LSTM(128, return_sequences=True, activation="relu")
-    )(encoder_input)
-    x = keras.layers.Bidirectional(
-        keras.layers.LSTM(64, activation="relu")
-    )(x)
-    encoder_output = keras.layers.Dense(encode_len, activation="relu", name="EncoderOutput")(x)
-    return keras.Model(encoder_input, encoder_output, name='EncoderBiLSTM')
-
-
-def DecoderBiLSTM(image_shape, encode_len):
-    decoder_input = keras.Input(shape=(encode_len,), name="DecoderInput")
-    x = keras.layers.Reshape((encode_len, 1))(decoder_input)
-    x = keras.layers.Bidirectional(
-        keras.layers.LSTM(64, return_sequences=True, activation="relu")
-    )(x)
-    x = keras.layers.Bidirectional(
-        keras.layers.LSTM(128, activation="relu")
-    )(x)
-    x = keras.layers.Dense(utils.number_of_pixels(image_shape), activation="relu", name="EncoderOutput")(x)
-    decoder_output = keras.layers.Reshape(image_shape)(x)
-    return keras.Model(decoder_input, decoder_output, name='DecoderBiLSTM')
+def specialLayer(type, neurons, return_sequences, activation='tanh'):
+    if type == 'R':
+        return keras.layers.SimpleRNN(neurons, return_sequences=return_sequences, activation=activation)
+    elif type == 'G':
+        return keras.layers.GRU(neurons, return_sequences=return_sequences, activation=activation)
+    elif type == 'L':
+        return keras.layers.LSTM(neurons, return_sequences=return_sequences, activation=activation)
+    elif type == 'BR':
+        return keras.layers.Bidirectional(
+            keras.layers.SimpleRNN(neurons, return_sequences=return_sequences, activation=activation)
+        )
+    elif type == 'BG':
+        return keras.layers.Bidirectional(
+            keras.layers.GRU(neurons, return_sequences=return_sequences, activation=activation)
+        )
+    elif type == 'BL':
+        return keras.layers.Bidirectional(
+            keras.layers.LSTM(neurons, return_sequences=return_sequences, activation=activation)
+        )
+    else:
+        print("Wrong type entered")
 
 
 def otherLayers():
@@ -298,10 +200,10 @@ def virtual_shape(shape, features, pool, down_sample):
             return False, shape
 
 
-def CNNLayers(image_shape, encoder):
+def CNNLayers(image_shape, isEncoder):
     temp_shape = image_shape
     layers = []
-    if encoder:
+    if isEncoder:
         keyword = "pool"
     else:
         keyword = "downsample"

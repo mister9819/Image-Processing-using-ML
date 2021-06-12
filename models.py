@@ -63,7 +63,7 @@ def create_model(image_shape, encoder_type, decoder_type, encode_len, inp=False)
         while True:
             encoder_type = input("Enter choice for Encoder. \nC for CNN \nD for Dense "
               "\nR for RNN \nG for GRU \nL for LSTM "
-              "\nBR for BiRNN \nG for BiGRU \nL for BiLSTM \n0 for exit \nChoice: ")
+              "\nBR for BiRNN \nBG for BiGRU \nBL for BiLSTM \n0 for exit \nChoice: ")
             if encoder_type == "0":
                 exit()
             encoder_type = encoder_type.upper()
