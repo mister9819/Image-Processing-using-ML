@@ -4,6 +4,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import models
 import utils
+import custom_models
 
 utils.use_GPU()
 
@@ -12,7 +13,7 @@ x_train = x_train/255.0
 x_test = x_test/255.0
 image_shape = utils.image_shape_from_data(x_train)
 
-print("0. Exit \n1. Create new model \n2. Load existing model")
+print("0. Exit \n1. Create new basic model \n2. Create new custom mirror model \n3. Load existing model")
 choice = int(input("Choice: "))
 
 if choice == 0:
@@ -21,6 +22,9 @@ elif choice == 1:
     model = models.create_model(image_shape, "D", "D", 64, inp=True)
     model = utils.train_model(model, x_train, inp=True)
 elif choice == 2:
+    model = custom_models.create_model(image_shape, "D", "D", 64, inp=True)
+    model = utils.train_model(model, x_train, inp=True)
+elif choice == 3:
     model = utils.load_model_options()
     print("0. Exit \n1. Don't train loaded model \n2. Train loaded model")
     choice = int(input("Choice: "))

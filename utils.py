@@ -26,6 +26,11 @@ def model_predict(model, test):
 
 
 def train_model(model, x_train, epochs=3, batch_size=32, validation_split=0.1, inp=False):
+    model.fit(x_train, x_train, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
+    return model
+
+
+def test_train_model(model, x_train, epochs=3, batch_size=32, validation_split=0.1, inp=False):
     try:
         model1 = tf.keras.models.load_model("models/" + model.name + ".h5")
         if inp:
