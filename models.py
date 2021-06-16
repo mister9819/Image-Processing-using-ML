@@ -141,7 +141,7 @@ def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len
         if inp:
             encoder_type = get_coder_type("autoencoder")
         if encoder_type == "C":
-            layers_e = helper_layers(image_shape, [28, 56])
+            layers_e = helper_layers(image_shape, [28, 28])
         elif encoder_type == "D":
             layers_e = []
         else:
@@ -185,7 +185,7 @@ def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len
     x = keras.Input(shape=image_shape)
     # make the model:
     name = get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d)
-    print(name)
+    print("Model name:", name)
     autoencoder = keras.Model(x, d(e(x)), name=name)
 
     # compile the model:
