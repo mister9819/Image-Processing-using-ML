@@ -19,14 +19,15 @@ if not debug:
     print("0. Exit")
     print("1. Create new basic model")
     print("2. Create new basic mirror model")
-    print("3. Create new custom mirror model")
-    print("4. Load existing model")
+    print("3. Create new custom model")
+    print("4. Create new custom mirror model")
+    print("5. Load existing model")
     choice = input("Choice: ")
 model = None
 
 if choice == "0" or choice == "":
     exit()
-elif choice == "3":
+elif choice == "5":
     model = utils.load_model_options()
     print("0. Exit \n1. Don't train loaded model \n2. Train loaded model")
     choice = int(input("Choice: "))
@@ -43,11 +44,13 @@ else:
     elif choice == "2":
         keyword = "basic_mirror"
     elif choice == "3":
+        keyword = "custom"
+    elif choice == "4":
         keyword = "custom_mirror"
     else:
         print("Wrong choice.")
         exit()
-    model = models.create_model(keyword, image_shape, "C", "C", 64, [28, 28], inp=not debug)
+    model = models.create_model(keyword, image_shape, "C", "C", 64, [28, 56], [56, 28], inp=not debug)
     model = utils.train_model(model, x_train, inp=True)
 
 encoder = utils.get_encoder(model)

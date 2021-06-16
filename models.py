@@ -1,6 +1,7 @@
 from tensorflow import keras
 import utils
 import custom_layers
+import copy
 
 
 def encoder_choice(image_shape, encode_len, encoder_type, layers, inp):
@@ -69,54 +70,111 @@ def get_coder_type(keyword):
     return coder_type
 
 
-def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len, layers=None, inp=False):
+def get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d):
+    models = {"custom_mirror": "CM", "custom": "C", "basic_mirror": "B", "basic": "B"}
+    name = models[model_type] + "_e_"
+    if decoder_type == "C":
+        layers_d.reverse()
+    layers_e.reverse()
+    for l in layers_e:
+        if encoder_type == "C":
+            name += encoder_type + str(l[0]) + "-" + str(l[1]) + "_"
+        else:
+            name += encoder_type + str(l) + "_"
+    name += "d_"
+    for l in layers_d:
+        if decoder_type == "C":
+            name += decoder_type + str(l[0]) + "-" + str(l[1]) + "_"
+        else:
+            name += decoder_type + str(l) + "_"
+    name += str(encode_len)
+    return name
+
+
+def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len,
+                 layers_e=None, layers_d=None, inp=False):
     # Take input for type of models
-    if layers is None:
-        layers = []
+    if layers_d is None:
+        layers_d = []
+    if layers_e is None:
+        layers_e = []
     if inp:
         encode_len = int(input("Enter length of encoded message: "))
 
     if model_type == "custom_mirror":
         if inp:
-            encoder_type = get_coder_type("autoencoder")
-        e, layers = encoder_choice(image_shape, encode_len, encoder_type, layers, inp)
+            encoder_type = get_coder_type("encoder")
+        e, layers_e = encoder_choice(image_shape, encode_len, encoder_type, layers_e, inp)
 
+        layers_d = copy.deepcopy(layers_e)
         decoder_type = encoder_type
-        d = decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
+        d = decoder_choice(image_shape, encode_len, decoder_type, layers_d, inp)
+        if encoder_type == "C":
+            layers_d.reverse()
+    elif model_type == "custom":
+        if inp:
+            encoder_type = get_coder_type("autoencoder")
+        if encoder_type == "C":
+            layers_e = helper_layers(image_shape, layers_e)
+        # Only need the encoder, discard layers
+        e, layers_e = encoder_choice(image_shape, encode_len, encoder_type, layers_e, inp)
+
+        if inp:
+            decoder_type = get_coder_type("decoder")
+            if decoder_type == "C":
+                print("\nNote: You'll be making decoder upside down to finally match the image size.")
+                layers_d = CNNLayers(image_shape, False)
+            elif decoder_type == "D":
+                layers_d = otherLayers()
+            else:
+                layers_d = otherLayers()
+                if len(layers_d) == 0:
+                    print("Cannot have 0 layers")
+                    exit()
+        if decoder_type == "C":
+            layers_d = helper_layers(image_shape, layers_d)
+            layers_d.reverse()
+        d = decoder_choice(image_shape, encode_len, decoder_type, layers_d, inp)
+        if inp and decoder_type == "C":
+            layers_d.reverse()
     elif model_type == "basic_mirror":
         if inp:
             encoder_type = get_coder_type("autoencoder")
         if encoder_type == "C":
-            layers = helper_layers(image_shape, [28, 28])
+            layers_e = helper_layers(image_shape, [28, 56])
         elif encoder_type == "D":
-            layers = []
+            layers_e = []
         else:
-            layers = [128, 64]
-        e, layers = encoder_choice(image_shape, encode_len, encoder_type, layers, False)
+            layers_e = [128, 64]
+        e, layers_e = encoder_choice(image_shape, encode_len, encoder_type, layers_e, False)
 
+        layers_d = copy.deepcopy(layers_e)
         decoder_type = encoder_type
-        d = decoder_choice(image_shape, encode_len, decoder_type, layers, False)
+        d = decoder_choice(image_shape, encode_len, decoder_type, layers_d, False)
+        if encoder_type == "C":
+            layers_d.reverse()
     elif model_type == "basic":
         if inp:
             encoder_type = get_coder_type("encoder")
         if encoder_type == "C":
-            layers = helper_layers(image_shape, [28, 28])
+            layers_e = helper_layers(image_shape, [28, 28])
         elif encoder_type == "D":
-            layers = []
+            layers_e = []
         else:
-            layers = [128, 64]
-        e, layers = encoder_choice(image_shape, encode_len, encoder_type, layers, False)
+            layers_e = [128, 64]
+        # Only need the encoder, discard layers
+        e, layers_e = encoder_choice(image_shape, encode_len, encoder_type, layers_e, False)
 
         if inp:
-            encoder_type = get_coder_type("decoder")
+            decoder_type = get_coder_type("decoder")
         if decoder_type == "C":
-            layers = helper_layers(image_shape, [28, 28])
-            layers.reverse()
+            layers_d = helper_layers(image_shape, [28, 28])
+            layers_d.reverse()
         elif decoder_type == "D":
-            layers = []
+            layers_d = []
         else:
-            layers = [64, 128]
-        d = decoder_choice(image_shape, encode_len, decoder_type, layers, False)
+            layers_d = [64, 128]
+        d = decoder_choice(image_shape, encode_len, decoder_type, layers_d, False)
     else:
         e = None
         d = None
@@ -126,13 +184,14 @@ def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len
     # define input to the model:
     x = keras.Input(shape=image_shape)
     # make the model:
-    name = "e_" + encoder_type + "_d_" + decoder_type + "_" + str(encode_len)
+    name = get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d)
+    print(name)
     autoencoder = keras.Model(x, d(e(x)), name=name)
 
     # compile the model:
     autoencoder.compile(optimizer='Adam', loss='mse', metrics=['accuracy'])
-    autoencoder.layers[-2].summary()
-    autoencoder.layers[-1].summary()
+    # autoencoder.layers[-2].summary()
+    # autoencoder.layers[-1].summary()
     return autoencoder
 
 
@@ -314,8 +373,12 @@ def CNNLayers(image_shape, isEncoder):
                     break
             layers.append([features, pool, temp_shape])
             print("\nCurrent layers:")
-            for i, layer in enumerate(layers):
-                print(str(i+1) + ". Features:", layer[0], keyword + ":", layer[1])
+            if isEncoder:
+                for i, layer in enumerate(layers):
+                    print(str(i+1) + ". Features:", layer[0], keyword + ":", layer[1])
+            else:
+                for i, layer in enumerate(reversed(layers)):
+                    print(str(i+1) + ". Features:", layer[0], keyword + ":", layer[1])
         else:
             break
 
