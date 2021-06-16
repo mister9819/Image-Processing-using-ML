@@ -190,8 +190,8 @@ def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len
 
     # compile the model:
     autoencoder.compile(optimizer='Adam', loss='mse', metrics=['accuracy'])
-    # autoencoder.layers[-2].summary()
-    # autoencoder.layers[-1].summary()
+    autoencoder.layers[-2].summary()
+    autoencoder.layers[-1].summary()
     return autoencoder
 
 
