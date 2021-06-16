@@ -205,13 +205,26 @@ def virtual_shape(shape, features, pool, down_sample):
 
 def helper_layers(image_shape, layers):
     nlayers = []
+    if len(layers) == 0:
+        print("Wrong format. Use [f1, f2, f3] for default pool as 2 or [[f1, p1], [f2, p2], [f3, p3]]")
+        exit()
     temp_shape = image_shape
     for layer in layers:
-        correct, temp_shape = virtual_shape(temp_shape, layer[0], layer[1], True)
-        if not correct:
-            print("Wrong layers made.")
+        if isinstance(layer, int):
+            correct, temp_shape = virtual_shape(temp_shape, layer, 2, True)
+            if not correct:
+                print("Wrong layers made.")
+                exit()
+            nlayers.append([layer, 2, temp_shape])
+        elif len(layer) == 2:
+            correct, temp_shape = virtual_shape(temp_shape, layer[0], layer[1], True)
+            if not correct:
+                print("Wrong layers made.")
+                exit()
+            nlayers.append([layer[0], layer[1], temp_shape])
+        else:
+            print("Wrong format. Use [f1, f2, f3] for default pool as 2 or [[f1, p1], [f2, p2], [f3, p3]]")
             exit()
-        nlayers.append([layer[0], layer[1], temp_shape])
     return nlayers
 
 
