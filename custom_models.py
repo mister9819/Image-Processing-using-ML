@@ -3,18 +3,22 @@ import utils
 import custom_layers
 
 
-def encoder_choice(image_shape, encode_len, encoder_type, inp):
+def encoder_choice(image_shape, encode_len, encoder_type, layers, inp):
     e = None
-    layers = []
     if encoder_type == 'D':
-        layers = otherLayers()
+        if inp:
+            layers = otherLayers()
         e = EncoderDNN(image_shape, encode_len, layers)
     elif encoder_type == 'C':
-        layers = CNNLayers(image_shape, True)
+        if inp:
+            layers = CNNLayers(image_shape, True)
+        else:
+            layers = helper_layers(image_shape, layers)
         e = EncoderCNN(image_shape, encode_len, layers)
     elif encoder_type == 'R' or encoder_type == 'G' or encoder_type == 'L' or \
             encoder_type == 'BR' or encoder_type == 'BG' or encoder_type == 'BL':
-        layers = otherLayers()
+        if inp:
+            layers = otherLayers()
         if len(layers) == 0:
             print("Cannot have 0 layers")
             exit()
@@ -50,7 +54,7 @@ def decoder_choice(image_shape, encode_len, decoder_type, layers, inp):
     return d
 
 
-def create_model(image_shape, encoder_type, decoder_type, encode_len, inp=False):
+def create_model(image_shape, encoder_type, decoder_type, encode_len, layers=[], inp=False):
     # Take input for type of models
     if inp:
         encode_len = int(input("Enter length of encoded message: "))
@@ -62,15 +66,14 @@ def create_model(image_shape, encoder_type, decoder_type, encode_len, inp=False)
                 exit()
             encoder_type = encoder_type.upper()
 
-            e, layers = encoder_choice(image_shape, encode_len, encoder_type, inp)
+            e, layers = encoder_choice(image_shape, encode_len, encoder_type, [], inp)
 
             decoder_type = encoder_type
             d = decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
             if d != None:
                 break
     else:
-        e, layers = encoder_choice(image_shape, encode_len, encoder_type, inp)
-        print(layers)
+        e, layers = encoder_choice(image_shape, encode_len, encoder_type, layers, inp)
         d = decoder_choice(image_shape, encode_len, decoder_type, layers, inp)
 
     # define input to the model:
@@ -198,6 +201,18 @@ def virtual_shape(shape, features, pool, down_sample):
             return True, (int(shape[0]/pool), int(shape[1]/pool), features)
         else:
             return False, shape
+
+
+def helper_layers(image_shape, layers):
+    nlayers = []
+    temp_shape = image_shape
+    for layer in layers:
+        correct, temp_shape = virtual_shape(temp_shape, layer[0], layer[1], True)
+        if not correct:
+            print("Wrong layers made.")
+            exit()
+        nlayers.append([layer[0], layer[1], temp_shape])
+    return nlayers
 
 
 def CNNLayers(image_shape, isEncoder):

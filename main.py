@@ -22,7 +22,7 @@ elif choice == 1:
     model = models.create_model(image_shape, "D", "D", 64, inp=True)
     model = utils.train_model(model, x_train, inp=True)
 elif choice == 2:
-    model = custom_models.create_model(image_shape, "D", "D", 64, inp=True)
+    model = custom_models.create_model(image_shape, "D", "D", 64, [], inp=True)
     model = utils.train_model(model, x_train, inp=True)
 elif choice == 3:
     model = utils.load_model_options()
