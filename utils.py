@@ -4,7 +4,8 @@ import os
 import tensorflow as tf
 import numpy as np
 import tensorflow_datasets as tfds
-import shutil
+import tensorflow.keras.backend as K
+import csv
 
 #================== Tensorflow and models ==================#
 def use_GPU():
@@ -13,8 +14,8 @@ def use_GPU():
 
 
 def test_accuracy(model, x_test):
-    test_loss, test_acc = model.evaluate(x_test, x_test, verbose=2)
-    print('\nTest accuracy:', test_acc)
+    test_loss, test_acc = model.evaluate(x_test, x_test, verbose=0)
+    return test_loss, test_acc
 
 
 def model_predict(model, test):
@@ -23,6 +24,29 @@ def model_predict(model, test):
         shape = append_element_tuple(shape)
     ae_out = model.predict(test.reshape(-1, shape[0], shape[1], shape[2]))
     return ae_out[0]
+
+
+class timecallback(tf.keras.callbacks.Callback):
+    def __init__(self):
+        self.times = []
+        self.epochs = []
+        self.timetaken = tf.timestamp()
+    def on_epoch_end(self,epoch, logs = {}):
+        self.times.append(tf.timestamp() - self.timetaken)
+        self.epochs.append(epoch)
+    def on_train_end(self, logs = {}):
+        global times
+        times = []
+        for i in range(len(self.epochs)):
+            times.append(self.times[i].numpy())
+        times.append(len(self.epochs))
+
+
+def train_model_history(model, x_train, epochs=3, batch_size=32, inp=False):
+    history = model.fit(x_train, x_train, epochs=epochs, batch_size=batch_size, callbacks=[timecallback()])
+    history.history['time'] = times[:-1]
+    history.history['epochs'] = times[-1]
+    return model, history.history
 
 
 def train_model(model, x_train, epochs=3, batch_size=32, validation_split=0.1, inp=False):
@@ -93,9 +117,18 @@ def load_model_options():
             return load_model(models[choice-1][:-3])
         print("Wrong Choice")
 
-# Might have to edit if CNN is made dynamic
-def get_helper_shape(image_shape):
-    return (int(image_shape[0]/4), int(image_shape[0]/4), image_shape[0])
+
+def get_trainable_params(model):
+    return np.sum([K.count_params(w) for w in model.trainable_weights])
+
+
+def get_non_trainable_params(model):
+    return np.sum([K.count_params(w) for w in model.non_trainable_weights])
+
+
+def get_total_params(model):
+    return (np.sum([K.count_params(w) for w in model.non_trainable_weights])
+            + np.sum([K.count_params(w) for w in model.trainable_weights]))
 
 
 #================== Measuring Performance ==================#
@@ -183,6 +216,23 @@ def get_data(name, test=False):
         print("No dataset exists")
         return None
 
+
+def generate_csv(data):
+    fields = ['Name', 'Encoder Train Params', 'Encoder Non Train Params', 'Encoder All Params',
+              'Decoder Train Params', 'Decoder Non Train Params', 'Decoder All Params',
+              'Encoded Message Length', 'Compression Ratio', 'Loss', 'Accuracy', 'Time to Train',
+              'Epochs']
+    try:
+        with open('history.csv', 'x') as file:
+            csvwriter = csv.writer(file)
+            csvwriter.writerow(fields)
+            csvwriter.writerows(data)
+            print("Data written successfully to history.csv")
+    except FileExistsError:
+        with open('history.csv', 'a') as file:
+            csvwriter = csv.writer(file)
+            csvwriter.writerows(data)
+            print("Data written successfully to history.csv")
 
 #================== General Utils ==================#
 def append_element_tuple(t, e=1):
