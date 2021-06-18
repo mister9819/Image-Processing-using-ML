@@ -52,7 +52,7 @@ else:
         else:
             print("Wrong choice.")
             exit()
-        model = models.create_model(keyword, image_shape, "C", "C", 64, [28, 56], [56, 28], inp=True)
+        model = models.create_model(keyword, image_shape, "", "", 0, [], [], inp=True)
         model = utils.train_model(model, x_train, inp=True)
 
     encoder = utils.get_encoder(model)
