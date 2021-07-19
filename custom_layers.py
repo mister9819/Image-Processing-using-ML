@@ -10,7 +10,8 @@ class CNNBlock(keras.layers.Layer):
         if pool > 1:
             self.pool = True
             if not down_sample:
-                self.pooling = keras.layers.UpSampling2D(pool)
+                self.conv = keras.layers.Conv2DTranspose(out_channels, kernel_size=3, strides=2, activation='relu', padding='same')
+                self.pool = False
             else:
                 self.pooling = keras.layers.MaxPool2D(pool)
         else:

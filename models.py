@@ -1,98 +1,14 @@
 from tensorflow import keras
 import utils
+from utils import pprint
 import custom_layers
 import copy
-
-
-def encoder_choice(image_shape, encode_len, encoder_type, layers, inp):
-    e = None
-    if encoder_type == 'D':
-        if inp:
-            layers = otherLayers()
-        e = EncoderDNN(image_shape, encode_len, layers)
-    elif encoder_type == 'C':
-        if inp:
-            layers = CNNLayers(image_shape, True)
-        e = EncoderCNN(image_shape, encode_len, layers)
-        layers = helper_layers(image_shape, layers)
-    elif encoder_type == 'R' or encoder_type == 'G' or encoder_type == 'L' or \
-            encoder_type == 'BR' or encoder_type == 'BG' or encoder_type == 'BL':
-        if inp:
-            layers = otherLayers()
-        if len(layers) == 0:
-            print("Cannot have 0 layers")
-            exit()
-        e = EncoderSpecial(encoder_type, image_shape, encode_len, layers)
-    else:
-        if not inp:
-            print("Wrong choice for Encoder. \nC for CNN \nD for Dense "
-                  "\nR for RNN \nG for GRU \nL for LSTM "
-                  "\nBR for BiRNN \nG for BiGRU \nL for BiLSTM")
-            exit()
-    layers.reverse()
-    return e, layers
-
-
-def decoder_choice(image_shape, encode_len, decoder_type, layers, inp):
-    d = None
-    if decoder_type == 'D':
-        d = DecoderDNN(image_shape, encode_len, layers)
-    elif decoder_type == 'C':
-        return DecoderCNN(image_shape, encode_len, layers)
-    elif decoder_type == 'R' or decoder_type == 'G' or decoder_type == 'L' or \
-            decoder_type == 'BR' or decoder_type == 'BG' or decoder_type == 'BL':
-        if len(layers) == 0:
-            print("Cannot have 0 layers")
-            exit()
-        d = DecoderSpecial(decoder_type, image_shape, encode_len, layers)
-    else:
-        if not inp:
-            print("Wrong choice for Decoder. \nC for CNN \nD for Dense "
-                  "\nR for RNN \nG for GRU \nL for LSTM "
-                  "\nBR for BiRNN \nG for BiGRU \nL for BiLSTM")
-            exit()
-    return d
-
-
-def get_coder_type(keyword):
-    types = {"C": "CNN", "D": "Dense", "R": "RNN", "G": "GRU", "L": "LSTM",
-             "BR": "Bidirectional RNN", "BG": "Bidirectional GRU", "BL": "Bidirectional LSTM"}
-    while True:
-        print("Enter choice for " + keyword + ".")
-        for key, val in types.items():
-            print(key, "for", val)
-        coder_type = input("Choice: ")
-        if types == "0" or coder_type == "":
-            exit()
-        coder_type = coder_type.upper()
-        if coder_type in types.keys():
-            break
-    return coder_type
-
-
-def get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d):
-    models = {"custom_mirror": "CM", "custom": "C", "basic_mirror": "B", "basic": "B"}
-    name = models[model_type] + "_e_"
-    if decoder_type == "C":
-        layers_d.reverse()
-    layers_e.reverse()
-    for l in layers_e:
-        if encoder_type == "C":
-            name += encoder_type + str(l[0]) + "-" + str(l[1]) + "_"
-        else:
-            name += encoder_type + str(l) + "_"
-    name += "d_"
-    for l in layers_d:
-        if decoder_type == "C":
-            name += decoder_type + str(l[0]) + "-" + str(l[1]) + "_"
-        else:
-            name += decoder_type + str(l) + "_"
-    name += str(encode_len)
-    return name
+import tensorflow as tf
 
 
 def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len,
-                 layers_e=None, layers_d=None, inp=False):
+                 layers_e=None, layers_d=None, loss='mse', inp=False):
+    loss = loss.upper()
     # Take input for type of models
     if layers_d is None:
         layers_d = []
@@ -184,15 +100,109 @@ def create_model(model_type, image_shape, encoder_type, decoder_type, encode_len
     # define input to the model:
     x = keras.Input(shape=image_shape)
     # make the model:
-    name = get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d)
-    print("Model name:", name)
+    name = get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d, loss)
+    pprint(f"Model name: {name}", 'CYAN')
     autoencoder = keras.Model(x, d(e(x)), name=name)
 
     # compile the model:
-    autoencoder.compile(optimizer='Adam', loss='mse', metrics=['accuracy'])
+    if loss == 'MSE':
+        autoencoder.compile(optimizer=tf.keras.optimizers.Adam(lr=0.001, decay=1e-6),
+                        loss='mse', metrics=['accuracy'])
+    elif loss == 'SSIM':
+        autoencoder.compile(optimizer=tf.keras.optimizers.Adam(lr=0.001, decay=1e-6),
+                            loss=utils.SSIMLoss, metrics=['accuracy'])
+    else:
+        pprint(f"{loss} loss does not exit.", 'fail')
     autoencoder.layers[-2].summary()
     autoencoder.layers[-1].summary()
     return autoencoder
+
+
+def encoder_choice(image_shape, encode_len, encoder_type, layers, inp):
+    e = None
+    if encoder_type == 'D':
+        if inp:
+            layers = otherLayers()
+        e = EncoderDNN(image_shape, encode_len, layers)
+    elif encoder_type == 'C':
+        if inp:
+            layers = CNNLayers(image_shape, True)
+        e = EncoderCNN(image_shape, encode_len, layers)
+        layers = helper_layers(image_shape, layers)
+    elif encoder_type == 'R' or encoder_type == 'G' or encoder_type == 'L' or \
+            encoder_type == 'BR' or encoder_type == 'BG' or encoder_type == 'BL':
+        if inp:
+            layers = otherLayers()
+        if len(layers) == 0:
+            print("Cannot have 0 layers")
+            exit()
+        e = EncoderSpecial(encoder_type, image_shape, encode_len, layers)
+    else:
+        if not inp:
+            print("Wrong choice for Encoder. \nC for CNN \nD for Dense "
+                  "\nR for RNN \nG for GRU \nL for LSTM "
+                  "\nBR for BiRNN \nG for BiGRU \nL for BiLSTM")
+            exit()
+    layers.reverse()
+    return e, layers
+
+
+def decoder_choice(image_shape, encode_len, decoder_type, layers, inp):
+    d = None
+    if decoder_type == 'D':
+        d = DecoderDNN(image_shape, encode_len, layers)
+    elif decoder_type == 'C':
+        return DecoderCNN(image_shape, encode_len, layers)
+    elif decoder_type == 'R' or decoder_type == 'G' or decoder_type == 'L' or \
+            decoder_type == 'BR' or decoder_type == 'BG' or decoder_type == 'BL':
+        if len(layers) == 0:
+            print("Cannot have 0 layers")
+            exit()
+        d = DecoderSpecial(decoder_type, image_shape, encode_len, layers)
+    else:
+        if not inp:
+            print("Wrong choice for Decoder. \nC for CNN \nD for Dense "
+                  "\nR for RNN \nG for GRU \nL for LSTM "
+                  "\nBR for BiRNN \nG for BiGRU \nL for BiLSTM")
+            exit()
+    return d
+
+
+def get_coder_type(keyword):
+    types = {"C": "CNN", "D": "Dense", "R": "RNN", "G": "GRU", "L": "LSTM",
+             "BR": "Bidirectional RNN", "BG": "Bidirectional GRU", "BL": "Bidirectional LSTM"}
+    while True:
+        pprint(f"Enter choice for {keyword}.", "underline")
+        for key, val in types.items():
+            pprint(f"{key} for {val}", 'blue')
+        coder_type = input("Choice: ")
+        if types == "0" or coder_type == "":
+            exit()
+        coder_type = coder_type.upper()
+        if coder_type in types.keys():
+            break
+    return coder_type
+
+
+def get_model_name(model_type, encoder_type, decoder_type, encode_len, layers_e, layers_d, loss):
+    models = {"custom_mirror": "CM", "custom": "C", "basic_mirror": "B", "basic": "B"}
+    name = models[model_type] + "_e_"
+    if decoder_type == "C":
+        layers_d.reverse()
+    layers_e.reverse()
+    for l in layers_e:
+        if encoder_type == "C":
+            name += encoder_type + str(l[0]) + "-" + str(l[1]) + "_"
+        else:
+            name += encoder_type + str(l) + "_"
+    name += "d_"
+    for l in layers_d:
+        if decoder_type == "C":
+            name += decoder_type + str(l[0]) + "-" + str(l[1]) + "_"
+        else:
+            name += decoder_type + str(l) + "_"
+    name += str(encode_len) + "_" + loss
+    return name
 
 
 def EncoderDNN(image_shape, encode_len, layers):

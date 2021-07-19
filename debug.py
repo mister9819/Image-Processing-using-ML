@@ -4,30 +4,20 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import models
 import utils
+from utils import pprint
 
 def run():
-    utils.use_GPU()
-
-    x_train, x_test = utils.get_data("mnist", test=True)
+    x_train, x_test = utils.get_data(["mnist", "fashion_mnist"], test=True)
     x_train = x_train / 255.0
     image_shape = utils.image_shape_from_data(x_train)
     data = []
 
     # Edit to train multiple models
     choice = "3"
-    debug = True
     autoencoder_types = [["C", "C"]]
     autoencoder_layers = [[[28, 28], [28, 28]], [[28, 56], [56, 28]]]
     encode_lens = [64]
 
-    if not debug:
-        print("0. Exit")
-        print("1. Create new basic model")
-        print("2. Create new basic mirror model")
-        print("3. Create new custom model")
-        print("4. Create new custom mirror model")
-        print("5. Load existing model")
-        choice = input("Choice: ")
     model = None
 
     for autoencoder_type in autoencoder_types:
@@ -35,16 +25,6 @@ def run():
             for encode_len in encode_lens:
                 if choice == "0" or choice == "":
                     exit()
-                elif choice == "5":
-                    model = utils.load_model_options()
-                    print("0. Exit \n1. Don't train loaded model \n2. Train loaded model")
-                    choice = int(input("Choice: "))
-                    if choice == 0:
-                        exit()
-                    elif choice == 1:
-                        pass
-                    elif choice == 2:
-                        model = utils.train_model(model, x_train)
                 else:
                     keyword = ""
                     if choice == "1":
@@ -56,7 +36,7 @@ def run():
                     elif choice == "4":
                         keyword = "custom_mirror"
                     else:
-                        print("Wrong choice.")
+                        pprint("Wrong choice.", "red")
                         exit()
                     model = models.create_model(keyword, image_shape, autoencoder_type[0], autoencoder_type[1],
                                                 encode_len, autoencoder_layer[0], autoencoder_layer[1], inp=False)
